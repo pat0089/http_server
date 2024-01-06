@@ -1,4 +1,5 @@
 use std::net::TcpListener;
+mod http_builder;
 mod uri_sanitizer;
 mod request_validation;
 mod responses;

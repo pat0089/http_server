@@ -26,6 +26,9 @@ pub fn handle_client(mut stream: TcpStream) -> io::Result<()>{
 
     let mut header_lines: Vec<&str> = request_str.lines().collect();
 
+    if header_lines.is_empty() {
+        return respond_bad_request(&mut stream, "Empty request");
+    }
     // Parse the request header
     let request_line = header_lines[0];
     header_lines.remove(0);

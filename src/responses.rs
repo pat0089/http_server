@@ -1,5 +1,6 @@
 use std::net::TcpStream;
 use std::io::{self, Write};
+use crate::http_builder::{ write_html, write_head, write_body, write_title, write_script, write_header, write_paragraph, write_style };
 
 //400 Bad Request
 pub fn respond_bad_request(stream: &mut TcpStream, err: &str) -> io::Result<()> {
@@ -35,7 +36,20 @@ pub fn respond_basic_ok(stream: &mut TcpStream) -> io::Result<()> {
 
 //200 OK, but better
 pub fn respond_ok(stream: &mut TcpStream) -> io::Result<()> {
-    let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<html><head><script type=\'text/javascript\'>console.log('Hello, world!');</script><title>Hello, world!</title></head><body><h1>Hello, world!</h1></body></html>\r\n";
+    let title = write_title(Some("Hello, world!"));
+    let script = write_script(Some("console.log(\'Hello, world!\');"));
+    
+    let header = write_header(1, Some("Hello, world!"));
+    
+    let body = write_body(Some(&header));
+    let head = write_head(Some(&format!("{title}\n{script}")));
+
+    let html = write_html(Some(&format!("{head}\n{body}")));
+
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n{}", 
+        html
+    );
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
     Ok(())
