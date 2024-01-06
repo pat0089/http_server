@@ -1,15 +1,29 @@
-pub fn validate_request_line(request_line: &str) -> Result<(), String> {
+use crate::uri_sanitizer::sanitize_uri;
+
+// REST methods: GET, POST, PUT, DELETE
+const REQUEST_METHODS: [&str; 4] = ["GET", "POST", "PUT", "DELETE"];
+
+pub fn validate_request_line(request_line: &str) -> Result<String, String> {
     let parts: Vec<&str> = request_line.splitn(3, ' ').collect();
-    if parts.len() != 3 {
-        return Err("Invalid request line".to_string());
-    }
     let method = parts[0];
     let path = parts[1];
     let protocol = parts[2];
-    println!("Method: {}", method);
-    println!("Path: {}", path);
-    println!("Protocol: {}", protocol);
-    Ok(())
+    if parts.len() != 3 {
+        return Err("Invalid request line: missing method, path, or protocol".to_string());
+    }
+    if !REQUEST_METHODS.contains(&method) {
+        return Err("Invalid request line: invalid method".to_string());
+    }
+    // Sanitize the path
+    let path = sanitize_uri(path)?;
+
+    // Validate the path
+    if path.is_empty() {
+        return Err("Invalid request line: empty path".to_string());
+    }
+
+    println!("Method: {}, Path: {}, Protocol: {}", method, path, protocol);
+    Ok(path)
 }
 
 pub fn validate_header(header: &str) -> Result<(), String> {
@@ -24,7 +38,7 @@ pub fn validate_header(header: &str) -> Result<(), String> {
 
     let header_name = parts[0].trim();
     let header_value = parts[1].trim();
-    
+
     // Validate header name and value
     match header_name.to_lowercase().as_str() {
         "host" => validate_host_header(header_value),
