@@ -1,47 +1,58 @@
-use std::net::{SocketAddr, TcpStream, TcpListener};
-use std::io::{Read, Write};
+use std::net::{TcpStream, TcpListener};
+use std::io::{self, Read, Write};
+mod request_validation;
+use request_validation::{ validate_header, validate_request_line };
 
-fn handle_client(mut stream: TcpStream) {
+fn respond_bad_request(stream: &mut TcpStream, err: &str) -> io::Result<()> {
+    let response = format!("HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\n\r\nError: {}\r\n", err);
+    stream.write_all(response.as_bytes())?;
+    stream.flush()?;
+    Ok(())
+}
+
+fn handle_client(mut stream: TcpStream) -> io::Result<()>{
     let mut buffer = Vec::new();
     let mut local_buf = [0; 1024];
 
     loop {
-        match stream.read(&mut local_buf) {
-            Ok(0) => {
-                // No more data from client, break the loop
-                break;
-            }
-            Ok(size) => {
-                // Append the data read to the buffer
-                buffer.extend_from_slice(&local_buf[..size]);
+        let size = stream.read(&mut local_buf)?;
+        if size == 0 {
+            break;
+        }
+        buffer.extend_from_slice(&local_buf[..size]);
 
-                // Check if we have received double CRLF, indicating end of headers
-                if buffer.windows(4).any(|window| window == b"\r\n\r\n") {
-                    break;
-                }
-            }
-            Err(e) => {
-                eprintln!("Failed to read from stream: {}", e);
-                return;
-            }
+        // Check if we have received double CRLF
+        if buffer.windows(4).any(|window| window == b"\r\n\r\n") {
+            break;
         }
     }
 
-    let request_str = match String::from_utf8(buffer) {
-        Ok(req) => req,
-        Err(e) => {
-            eprintln!("Failed to convert buffer to string: {}", e);
-            return;
-        }
-    };
+    let request_str = String::from_utf8(buffer).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-    println!("Request: {}", request_str);
+    let mut request_lines: Vec<&str> = request_str.lines().collect();
 
-    // Write a response (this is a simple static response)
+    // Parse the request header
+    let request_line = request_lines[0];
+    request_lines.remove(0);
+
+    // Validate the request
+    if let Err(err) = validate_request_line(request_line) {
+        return respond_bad_request(&mut stream, &err);
+    }
+
+    for line in request_lines {
+        if let Err(err) = validate_header(line) {
+            return respond_bad_request(&mut stream, &err);
+        }    
+    }
+
+    // Write a response
     let response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, world!";
-    if let Err(e) = stream.write_all(response.as_bytes()) {
-        eprintln!("Failed to write response: {}", e);
-    }
+    stream.write_all(response.as_bytes())?;
+    stream.flush()?;
+    
+    Ok(())
+
 }
 
 fn main() {
@@ -49,7 +60,7 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                handle_client(stream);
+                handle_client(stream).unwrap();
             }
             Err(e) => {
                 eprintln!("Error: {}", e);
