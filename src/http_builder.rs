@@ -1,3 +1,7 @@
+pub fn write_http_response_header(code :u32, message: &str, content_type: &str) -> String {
+    format!("HTTP/1.1 {} {}\r\nContent-Type: {}\r\n\r\n", code.to_string(), message, content_type)
+}
+
 fn write_html_tag(tag_name: &str, open_closed: bool, content: Option<&str>, attributes: Option<&str>) -> String {
     match open_closed {
         true => format!("<{} {}>{}</{}>", tag_name, attributes.unwrap_or(""), content.unwrap_or(""), tag_name),

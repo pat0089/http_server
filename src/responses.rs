@@ -1,10 +1,11 @@
 use std::net::TcpStream;
 use std::io::{self, Write};
-use crate::http_builder::{ write_html, write_head, write_body, write_title, write_script, write_header, write_paragraph, write_style };
+use crate::http_builder::{ write_http_response_header, write_html, write_head, write_body, write_title, write_script, write_header, write_paragraph, write_style };
 
-//400 Bad Request
+//HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain
 pub fn respond_bad_request(stream: &mut TcpStream, err: &str) -> io::Result<()> {
-    let response = format!("HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\n\r\nError: {}\r\n", err);
+    let header = write_http_response_header(400, "Bad Request", "text/plain");
+    let response = format!("{}Error: {}\r\n", &header, &err);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
     Ok(())
@@ -12,7 +13,8 @@ pub fn respond_bad_request(stream: &mut TcpStream, err: &str) -> io::Result<()> 
 
 //403 Forbidden
 pub fn respond_forbidden(stream: &mut TcpStream, err: &str) -> io::Result<()> {
-    let response = format!("HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\n\r\nError: {}\r\n", err);
+    let header = write_http_response_header(403, "Forbidden", "text/plain");
+    let response = format!("{}Error: {}\r\n", &header, &err);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
     Ok(())
@@ -20,7 +22,8 @@ pub fn respond_forbidden(stream: &mut TcpStream, err: &str) -> io::Result<()> {
 
 //404 Not Found
 pub fn respond_not_found(stream: &mut TcpStream, err: &str) -> io::Result<()> {
-    let response = format!("HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nError: {}\r\n", err);
+    let header = write_http_response_header(404, "Not Found", "text/plain");
+    let response = format!("{}Error: {}\r\n", header, err);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
     Ok(())
@@ -28,7 +31,8 @@ pub fn respond_not_found(stream: &mut TcpStream, err: &str) -> io::Result<()> {
 
 //200 OK
 pub fn respond_basic_ok(stream: &mut TcpStream) -> io::Result<()> {
-    let response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, world!";
+    let header = write_http_response_header(200, "OK", "text/plain");
+    let response = format!("{}Hello, world!", header);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
     Ok(())
@@ -46,8 +50,11 @@ pub fn respond_ok(stream: &mut TcpStream) -> io::Result<()> {
 
     let html = write_html(Some(&format!("{head}\n{body}")));
 
+    let http_header = write_http_response_header(200, "OK", "text/html");
+
     let response = format!(
-        "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n{}", 
+        "{}{}",
+        http_header,
         html
     );
     stream.write_all(response.as_bytes())?;
