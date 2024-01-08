@@ -1,8 +1,10 @@
 use std::fs::read_to_string;
 use std::net::TcpStream;
 use std::io::{self, Read};
+use std::str::FromStr;
 use crate::request_validation::{ validate_header, validate_request_line };
 use crate::responses::{ respond_bad_request, respond_ok_with_body, respond_ok, respond_not_found, respond_forbidden, respond_internal_server_error };
+use crate::http_builder::{HttpRequest, HttpRequestLine, HttpMethod, HttpHeader};
 
 pub fn handle_client(mut stream: TcpStream) -> io::Result<()>{
     let mut buffer = Vec::new();
@@ -32,6 +34,29 @@ pub fn handle_client(mut stream: TcpStream) -> io::Result<()>{
     // Parse the request header
     let request_line = header_lines[0];
     header_lines.remove(0);
+
+    let mut headers = Vec::new();
+    for header in &header_lines {
+        if !header.is_empty() {
+            headers.push(HttpHeader::from_str(header).expect("Invalid header format"));            
+        }
+    }
+
+
+    let mut request_method_and_path : Vec<&str> = request_line.splitn(3, ' ').collect();
+    request_method_and_path.pop();
+    let mut request = HttpRequest::new(
+        HttpRequestLine::new(
+            HttpMethod::from_str(request_method_and_path[0]).unwrap_or(HttpMethod::GET),
+            request_method_and_path[1]
+        )
+    );
+
+    for header in headers {
+        request.add_header(header);
+    }
+
+    println!("{}", request);
 
     // Validate the header
     for line in header_lines {

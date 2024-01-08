@@ -155,27 +155,49 @@ impl fmt::Display for HttpHeader {
     }
 }
 
+impl FromStr for HttpHeader {
+    type Err = String; // You can define a more specific error type if needed
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.splitn(2, ':').collect();
+        if parts.len() != 2 {
+            return Err("Invalid header format".to_string());
+        }
+
+        let name = parts[0].trim();
+        let value = parts[1].trim();
+
+        match name {
+            "Content-Type" => {
+                Ok(HttpHeader::ContentType(ContentType::from_str(value).unwrap_or(ContentType::PlainText)))
+            },
+            "Content-Length" => value.parse::<u64>()
+                .map(HttpHeader::ContentLength)
+                .map_err(|_| "Invalid Content-Length value".to_string()),
+            _ => Ok(HttpHeader::Custom(name.to_string(), value.to_string())),
+        }
+    }
+}
+
 /// Structure to represent the first line of an HTTP request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpRequestLine {
     method: HttpMethod,
     uri: String,
-    http_version: String,
 }
 
 impl HttpRequestLine {
-    pub fn new(method: HttpMethod, uri: &str, http_version: &str) -> Self {
+    pub fn new(method: HttpMethod, uri: &str) -> Self {
         HttpRequestLine {
             method,
             uri: uri.to_string(),
-            http_version: http_version.to_string(),
         }
     }
 }
 
 impl fmt::Display for HttpRequestLine {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {} {}\r\n", self.http_version, self.method, self.uri)
+        write!(f, "HTTP/1.1 {} {}\r\n", self.method, self.uri)
     }
 }
 
