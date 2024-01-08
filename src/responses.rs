@@ -1,6 +1,6 @@
 use std::net::TcpStream;
 use std::io::{self, Write};
-use crate::http_builder::{ write_http_response_header, write_html, write_head, write_body, write_title, write_script, write_header, write_paragraph, write_style };
+use crate::http_builder::{ write_http_response_header, write_html, write_head, write_body, write_title, write_script, write_header };
 
 //HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain
 pub fn respond_bad_request(stream: &mut TcpStream, err: &str) -> io::Result<()> {
