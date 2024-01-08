@@ -55,6 +55,8 @@ pub enum ContentType {
     Html,
     Json,
     PlainText,
+    Javascript,
+    Css,
     // Add more as needed
 }
 
@@ -65,6 +67,8 @@ impl fmt::Display for ContentType {
             ContentType::Html => write!(f, "text/html"),
             ContentType::Json => write!(f, "application/json"),
             ContentType::PlainText => write!(f, "text/plain"),
+            ContentType::Javascript => write!(f, "text/javascript"),
+            ContentType::Css => write!(f, "text/css"),
         }
     }
 }
@@ -76,6 +80,8 @@ impl FromStr for ContentType {
             "text/html" => Ok(ContentType::Html),
             "application/json" => Ok(ContentType::Json),
             "text/plain" => Ok(ContentType::PlainText),
+            "text/javascript" => Ok(ContentType::Javascript),
+            "text/css" => Ok(ContentType::Css),
             _ => Err(()),
         }
     }
@@ -291,8 +297,8 @@ pub fn write_title(content: Option<&str>) -> String {
     write_html_tag("title", true, content, None)
 }
 
-pub fn write_script(content: Option<&str>) -> String {
-    write_html_tag("script", true, content, Some(&write_attribute("type", "text/javascript")))
+pub fn write_script(content: Option<&str>, additional_attributes: Option<&str>) -> String {
+    write_html_tag("script", true, content, Some(&format!("{}{}", write_attribute("type", "text/javascript"), additional_attributes.unwrap_or(""))))
 }
 
 pub fn write_header(level: u8, content: Option<&str>) -> String {

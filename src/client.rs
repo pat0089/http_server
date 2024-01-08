@@ -1,8 +1,8 @@
-use std::fs::File;
+use std::fs::read_to_string;
 use std::net::TcpStream;
 use std::io::{self, Read};
 use crate::request_validation::{ validate_header, validate_request_line };
-use crate::responses::{ respond_bad_request, respond_ok, respond_not_found };
+use crate::responses::{ respond_bad_request, respond_ok_with_body, respond_ok, respond_not_found, respond_forbidden, respond_internal_server_error };
 
 pub fn handle_client(mut stream: TcpStream) -> io::Result<()>{
     let mut buffer = Vec::new();
@@ -33,25 +33,43 @@ pub fn handle_client(mut stream: TcpStream) -> io::Result<()>{
     let request_line = header_lines[0];
     header_lines.remove(0);
 
-    // Validate the request
-    match validate_request_line(&request_line) {
-        Err(err) => return respond_bad_request(&mut stream, &err),
-        Ok(path) => {
-            //if the path points to nothing, return 404
-            if File::open(path).is_err() {
-                return respond_not_found(&mut stream, "File not found");
-            }
-            //add logic here later for 403 Forbidden
-        }
-    } 
-    
+    // Validate the header
     for line in header_lines {
         if let Err(err) = validate_header(line) {
             return respond_bad_request(&mut stream, &err);
         }    
     }
 
-    // Write a response
-    respond_ok(&mut stream)
+    // Validate the request, then respond
+    match validate_request_line(&request_line) {
+        Err(err) => return respond_bad_request(&mut stream, &err),
+        Ok(path) => {
+            let path = path.chars().skip(1).collect::<String>();
+            if path.is_empty() {
+                return respond_ok(&mut stream);
+            }
+            let file_contents = read_to_string(&path);
+            match file_contents {
+                Ok(contents) => {
+                    return respond_ok_with_body(&mut stream, &contents);
+                }
+                Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
+                    // File not found, send 404 response.
+                    return respond_not_found(&mut stream, "File Not Found")
+                }
+                Err(ref e) if e.kind() == io::ErrorKind::PermissionDenied => {
+                    // Permission denied, send 403 response.
+                    return respond_forbidden(&mut stream, "Forbidden, Access Denied")
+                }
+                Err(_) => {
+                    //if the path points to nothing, return 404
+                    return respond_internal_server_error(&mut stream, "Something went wrong! Contact the server administrator.")
+                    //add logic here later for 403 Forbidden
+                }
+            }
+        }
+    } 
+    
+
 
 }
