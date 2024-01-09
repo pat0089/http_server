@@ -1,11 +1,13 @@
 use std::net::TcpStream;
 use std::io::{self, Write};
-use crate::http_builder::write_http_response_header;
+use crate::http_builder::{write_http_response_header, ContentType};
 use crate::html_builder::{ write_html, write_head, write_body, write_title, write_script, write_header, write_attribute, write_style };
+use crate::http_builder::HttpStatus::{RequestOk, BadRequest, Forbidden, NotFound, InternalServerError};
+use crate::http_builder::ContentType::{PlainText, Html};
 
-//HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain
+//400 Bad Request
 pub fn respond_bad_request(stream: &mut TcpStream, err: &str) -> io::Result<()> {
-    let header = write_http_response_header(400, "Bad Request", "text/plain");
+    let header = write_http_response_header(BadRequest, Some(PlainText));
     let response = format!("{}Error: {}\r\n", &header, &err);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
@@ -14,7 +16,7 @@ pub fn respond_bad_request(stream: &mut TcpStream, err: &str) -> io::Result<()> 
 
 //403 Forbidden
 pub fn respond_forbidden(stream: &mut TcpStream, err: &str) -> io::Result<()> {
-    let header = write_http_response_header(403, "Forbidden", "text/plain");
+    let header = write_http_response_header(Forbidden, Some(PlainText));
     let response = format!("{}Error: {}\r\n", &header, &err);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
@@ -23,7 +25,7 @@ pub fn respond_forbidden(stream: &mut TcpStream, err: &str) -> io::Result<()> {
 
 //404 Not Found
 pub fn respond_not_found(stream: &mut TcpStream, err: &str) -> io::Result<()> {
-    let header = write_http_response_header(404, "Not Found", "text/plain");
+    let header = write_http_response_header(NotFound, Some(PlainText));
     let response = format!("{}Error: {}\r\n", header, err);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
@@ -32,7 +34,7 @@ pub fn respond_not_found(stream: &mut TcpStream, err: &str) -> io::Result<()> {
 
 //500 Internal Server Error
 pub fn respond_internal_server_error(stream: &mut TcpStream, err: &str) -> io::Result<()> {
-    let header = write_http_response_header(500, "Internal Server Error", "text/plain");
+    let header = write_http_response_header(InternalServerError, Some(PlainText));
     let response = format!("{}Error: {}\r\n", header, err);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
@@ -50,22 +52,17 @@ pub fn respond_ok(stream: &mut TcpStream) -> io::Result<()> {
     let body = write_body(Some(&header));
     let head = write_head(Some(&format!("{title}\n{script}\n{style}")));
 
-    let html = write_html(Some(&format!("{head}\n{body}")));
+    let response_body = write_html(Some(&format!("{head}\n{body}")));
 
-    let http_header = write_http_response_header(200, "OK", "text/html");
-
-    let response = format!(
-        "{}{}",
-        http_header,
-        html
-    );
-    stream.write_all(response.as_bytes())?;
-    stream.flush()?;
-    Ok(())
+    respond_ok_with_body_and_type(stream, &response_body, Html)
 }
 
 pub fn respond_ok_with_body(stream: &mut TcpStream, body: &str) -> io::Result<()> {
-    let header = write_http_response_header(200, "OK", "text/plain");
+    respond_ok_with_body_and_type(stream, body, PlainText)
+}
+
+pub fn respond_ok_with_body_and_type(stream: &mut TcpStream, body: &str, content_type: ContentType) -> io::Result<()> {
+    let header = write_http_response_header(RequestOk, Some(content_type));
     let response = format!("{}{}", header, body);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;

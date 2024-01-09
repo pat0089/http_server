@@ -4,7 +4,7 @@ use std::fmt::{Formatter, self};
 // Define an enum for the status code and message
 #[derive(Debug, Clone)]
 pub enum HttpStatus {
-    Ok,  // 200
+    RequestOk,  // 200
     Created,  // 201
     Accepted,  // 202
     NoContent,  // 204
@@ -19,7 +19,7 @@ impl FromStr for HttpStatus {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "200 OK" => Ok(HttpStatus::Ok),
+            "200 OK" => Ok(HttpStatus::RequestOk),
             "201 Created" => Ok(HttpStatus::Created),
             "202 Accepted" => Ok(HttpStatus::Accepted),
             "204 No Content" => Ok(HttpStatus::NoContent),
@@ -36,7 +36,7 @@ impl fmt::Display for HttpStatus {
     // Returns the status code and message as a tuple
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            HttpStatus::Ok => write!(f, "200 OK"),
+            HttpStatus::RequestOk => write!(f, "200 OK"),
             HttpStatus::Created => write!(f, "201 Created"),
             HttpStatus::NotFound => write!(f, "404 Not Found"),
             HttpStatus::Forbidden => write!(f, "403 Forbidden"),
@@ -243,7 +243,7 @@ impl fmt::Display for HttpResponse {
         for header in &self.headers {
             headers_string.push_str(&format!("{}", header));
         }
-        write!(f, "{}{}\r\n\r\n", self.response_line, headers_string)
+        write!(f, "{}{}\r\n", self.response_line, headers_string)
     }
 }
 
@@ -275,19 +275,14 @@ impl fmt::Display for HttpRequest {
         for header in &self.headers {
             headers_string.push_str(&format!("{}", header));
         }
-        write!(f, "{}{}\r\n\r\n", self.request_line, headers_string)
+        write!(f, "{}{}\r\n", self.request_line, headers_string)
     }
 }
 
-pub fn write_http_response_header(code :u32, message: &str, content_type: &str) -> String {
-    let mut response = HttpResponse::new(
-        HttpStatus::from_str(
-            &format!("{} {}", code, message))
-            .unwrap_or(HttpStatus::InternalServerError)
-    );
+pub fn write_http_response_header(status: HttpStatus, content_type: Option<ContentType>) -> String {
+    let mut response = HttpResponse::new(status);
 
-    response.add_header(HttpHeader::ContentType(ContentType::from_str(content_type).unwrap_or(ContentType::PlainText)));
+    response.add_header(HttpHeader::ContentType(content_type.unwrap_or(ContentType::PlainText)));
 
     response.to_string()
-    //format!("HTTP/1.1 {} {}\r\nContent-Type: {}\r\n\r\n", code.to_string(), message, content_type)
 }
