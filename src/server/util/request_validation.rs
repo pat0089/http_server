@@ -1,4 +1,4 @@
-use crate::uri_sanitizer::sanitize_uri;
+use crate::server::util::uri_sanitizer::sanitize;
 
 // REST methods: GET, POST, PUT, DELETE
 const REQUEST_METHODS: [&str; 4] = ["GET", "POST", "PUT", "DELETE"];
@@ -15,7 +15,7 @@ pub fn validate_request_line(request_line: &str) -> Result<String, String> {
         return Err("Invalid request line: invalid method".to_string());
     }
     // Sanitize the path
-    let path = sanitize_uri(path)?;
+    let path = sanitize(path)?;
 
     // Validate the path
     if path.is_empty() {

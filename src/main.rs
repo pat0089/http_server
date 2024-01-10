@@ -1,23 +1,9 @@
-use std::net::TcpListener;
 mod html_builder;
 mod http_builder;
-mod uri_sanitizer;
-mod request_validation;
-mod responses;
-mod client;
+mod server;
 
-use client::handle_client;
+use server::server::run;
 
 fn main() {
-    let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                handle_client(stream).unwrap();
-            }
-            Err(e) => {
-                eprintln!("Error: {}", e);
-            }
-        }
-    }
+    run();
 }

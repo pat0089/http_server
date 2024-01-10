@@ -2,8 +2,8 @@ use std::fs::read_to_string;
 use std::net::TcpStream;
 use std::io::{self, Read};
 use std::str::FromStr;
-use crate::request_validation::{ validate_header, validate_request_line };
-use crate::responses::{ respond_bad_request, respond_ok_with_body, respond_ok, respond_not_found, respond_forbidden, respond_internal_server_error };
+use crate::server::util::request_validation::{ validate_header, validate_request_line };
+use crate::server::responses::{ respond_bad_request, respond_ok_with_body, respond_ok, respond_not_found, respond_forbidden, respond_internal_server_error };
 use crate::http_builder::{HttpRequest, HttpRequestLine, HttpMethod, HttpHeader};
 
 pub fn handle_client(mut stream: TcpStream) -> io::Result<()>{
