@@ -57,10 +57,6 @@ pub fn respond_ok(stream: &mut TcpStream) -> io::Result<()> {
     respond_ok_with_body_and_type(stream, &response_body, Html)
 }
 
-pub fn respond_ok_with_body(stream: &mut TcpStream, body: &str) -> io::Result<()> {
-    respond_ok_with_body_and_type(stream, body, PlainText)
-}
-
 pub fn respond_ok_with_body_and_type(stream: &mut TcpStream, body: &str, content_type: MimeType) -> io::Result<()> {
     let header = write_http_response_header(RequestOk, Some(content_type));
     let response = format!("{}{}", header, body);

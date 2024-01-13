@@ -2,9 +2,11 @@ use std::fs::read_to_string;
 use std::net::TcpStream;
 use std::io::{self, Read};
 use std::str::FromStr;
+use crate::server::util::mime_types::from_file_extension;
 use crate::server::util::request_validation::{ validate_header, validate_request_line };
-use crate::server::responses::{ respond_bad_request, respond_ok_with_body, respond_ok, respond_not_found, respond_forbidden, respond_internal_server_error };
+use crate::server::responses::{ respond_bad_request, respond_ok, respond_not_found, respond_forbidden, respond_internal_server_error, respond_ok_with_body_and_type };
 use crate::http_builder::{HttpRequest, HttpRequestLine, HttpMethod, HttpHeader};
+use crate::server::util::uri::get_file_extension;
 
 pub fn handle_client(mut stream: TcpStream) -> io::Result<()>{
     let mut buffer = Vec::new();
@@ -76,7 +78,11 @@ pub fn handle_client(mut stream: TcpStream) -> io::Result<()>{
             let file_contents = read_to_string(&path);
             match file_contents {
                 Ok(contents) => {
-                    return respond_ok_with_body(&mut stream, &contents);
+                    return respond_ok_with_body_and_type(&mut stream, &contents, 
+                        from_file_extension(
+                            &get_file_extension(&path)
+                        )
+                    );
                 }
                 Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
                     // File not found, send 404 response.
