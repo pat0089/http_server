@@ -1,9 +1,9 @@
 use std::net::TcpStream;
 use std::io::{self, Write};
-use crate::http_builder::{write_http_response_header, ContentType};
+use crate::http_builder::write_http_response_header;
 use crate::html_builder::{ write_html, write_head, write_body, write_title, write_script, write_header, write_attribute, write_style };
 use crate::http_builder::HttpStatus::{RequestOk, BadRequest, Forbidden, NotFound, InternalServerError};
-use crate::http_builder::ContentType::{PlainText, Html};
+use crate::server::util::mime_types::MimeType::{*, self};
 
 //400 Bad Request
 pub fn respond_bad_request(stream: &mut TcpStream, err: &str) -> io::Result<()> {
@@ -61,7 +61,7 @@ pub fn respond_ok_with_body(stream: &mut TcpStream, body: &str) -> io::Result<()
     respond_ok_with_body_and_type(stream, body, PlainText)
 }
 
-pub fn respond_ok_with_body_and_type(stream: &mut TcpStream, body: &str, content_type: ContentType) -> io::Result<()> {
+pub fn respond_ok_with_body_and_type(stream: &mut TcpStream, body: &str, content_type: MimeType) -> io::Result<()> {
     let header = write_http_response_header(RequestOk, Some(content_type));
     let response = format!("{}{}", header, body);
     stream.write_all(response.as_bytes())?;

@@ -1,5 +1,6 @@
 use std::str::FromStr;
 use std::fmt::{Formatter, self};
+use crate::server::util::mime_types::MimeType;
 
 // Define an enum for the status code and message
 #[derive(Debug, Clone)]
@@ -44,45 +45,6 @@ impl fmt::Display for HttpStatus {
             HttpStatus::NoContent => write!(f, "204 No Content"),
             HttpStatus::InternalServerError => write!(f, "500 Internal Server Error"),
             _ => write!(f, "Not Implemented!"),
-        }
-    }
-}
-
-// Define an enum for different content types
-#[derive(Debug, Clone, PartialEq, Eq)]
-
-pub enum ContentType {
-    Html,
-    Json,
-    PlainText,
-    Javascript,
-    Css,
-    // Add more as needed
-}
-
-impl fmt::Display for ContentType {
-    // Returns the MIME type for the content type
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        match self {
-            ContentType::Html => write!(f, "text/html"),
-            ContentType::Json => write!(f, "application/json"),
-            ContentType::PlainText => write!(f, "text/plain"),
-            ContentType::Javascript => write!(f, "text/javascript"),
-            ContentType::Css => write!(f, "text/css"),
-        }
-    }
-}
-
-impl FromStr for ContentType {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "text/html" => Ok(ContentType::Html),
-            "application/json" => Ok(ContentType::Json),
-            "text/plain" => Ok(ContentType::PlainText),
-            "text/javascript" => Ok(ContentType::Javascript),
-            "text/css" => Ok(ContentType::Css),
-            _ => Err(()),
         }
     }
 }
@@ -140,7 +102,7 @@ impl fmt::Display for HttpMethod {
 /// Enum to represent specific header types.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HttpHeader {
-    ContentType(ContentType),
+    ContentType(MimeType),
     ContentLength(u64),
     Custom(String, String), // For headers not explicitly listed here.
 }
@@ -169,7 +131,7 @@ impl FromStr for HttpHeader {
 
         match name {
             "Content-Type" => {
-                Ok(HttpHeader::ContentType(ContentType::from_str(value).unwrap_or(ContentType::PlainText)))
+                Ok(HttpHeader::ContentType(MimeType::from_str(value).unwrap_or(MimeType::PlainText)))
             },
             "Content-Length" => value.parse::<u64>()
                 .map(HttpHeader::ContentLength)
@@ -279,10 +241,10 @@ impl fmt::Display for HttpRequest {
     }
 }
 
-pub fn write_http_response_header(status: HttpStatus, content_type: Option<ContentType>) -> String {
+pub fn write_http_response_header(status: HttpStatus, content_type: Option<MimeType>) -> String {
     let mut response = HttpResponse::new(status);
 
-    response.add_header(HttpHeader::ContentType(content_type.unwrap_or(ContentType::PlainText)));
+    response.add_header(HttpHeader::ContentType(content_type.unwrap_or(MimeType::PlainText)));
 
     response.to_string()
 }
