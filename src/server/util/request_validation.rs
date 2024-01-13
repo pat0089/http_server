@@ -1,4 +1,4 @@
-use crate::server::util::uri_sanitizer::sanitize;
+use crate::server::util::uri::sanitize;
 
 // REST methods: GET, POST, PUT, DELETE
 const REQUEST_METHODS: [&str; 4] = ["GET", "POST", "PUT", "DELETE"];

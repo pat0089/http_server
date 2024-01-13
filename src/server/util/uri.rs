@@ -1,20 +1,25 @@
 use std::path::Path;
 
+/// Sanitize the URI path.
+/// 
+/// Skip ".." segments to prevent directory traversal
+/// also remove redundant dots from the path as they indicate the current directory
 pub fn sanitize(uri: &str) -> Result<String, String> {
-    let path = Path::new(uri);
-
-    // Check for '..' to prevent directory traversal attacks
-    if path.components().any(|component| component.as_os_str() == "..") {
-        return Err("Invalid URI: contains '..'".to_string());
+    let parts: Vec<&str> = uri.split('/').collect();
+    let mut sanitized_parts = Vec::new();
+    for part in parts.iter() {
+        // Skip ".." segments to prevent directory traversal
+        if part == &".." {
+            return Err(format!("Invalid URI: {}", uri));
+        }
+        
+        // Remove dots from the path since they indicate the current directory
+        if part == &"." {
+            continue;
+        }
+        sanitized_parts.push(*part);
     }
-
-    // Normalize the path
-    Ok(path
-        .canonicalize()
-        .map_err(|e| e.to_string())?
-        .to_str()
-        .ok_or("Failed to convert path to string")?
-        .to_string())
+    Ok(sanitized_parts.join("/"))
 }
 
 pub fn get_file_extension(uri: &str) -> String {
