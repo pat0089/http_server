@@ -229,6 +229,10 @@ impl HttpRequest {
     pub fn add_header(&mut self, header: HttpHeader) {
         self.headers.push(header);
     }
+
+    pub fn path(&self) -> String {
+        return self.request_line.uri.clone();
+    }
 }
 
 impl fmt::Display for HttpRequest {

@@ -4,11 +4,13 @@ use std::io::{self, Read};
 use std::str::FromStr;
 use crate::server::util::mime_types::from_file_extension;
 use crate::server::util::request_validation::{ validate_header, validate_request_line };
-use crate::server::responses::{ respond_bad_request, respond_ok, respond_not_found, respond_forbidden, respond_internal_server_error, respond_ok_with_body_and_type };
+use crate::server::responses::{ respond_bad_request, respond_not_found, respond_forbidden, respond_internal_server_error, respond_ok_with_body_and_type };
 use crate::http_builder::{HttpRequest, HttpRequestLine, HttpMethod, HttpHeader};
 use crate::server::util::uri::get_file_extension;
+use crate::server::routes::Route;
 
-pub fn handle_client(mut stream: TcpStream) -> io::Result<()>{
+pub fn read_in_request(stream: &mut TcpStream) -> io::Result<String> {
+
     let mut buffer = Vec::new();
     let mut local_buf = [0; 1024];
 
@@ -26,7 +28,39 @@ pub fn handle_client(mut stream: TcpStream) -> io::Result<()>{
         }
     }
 
-    let request_str = String::from_utf8(buffer).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    String::from_utf8(buffer).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+}
+
+fn handle_file_case(mut stream: &mut TcpStream, path: &str) -> io::Result<()> {
+    let path = path.chars().skip(1).collect::<String>();
+    let file_contents = read_to_string(&path);
+    match file_contents {
+                Ok(contents) => {
+                    return respond_ok_with_body_and_type(&mut stream, &contents, 
+                        from_file_extension(
+                            &get_file_extension(&path)
+                        )
+                    );
+                }
+                Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
+                    // File not found, send 404 response.
+                    return respond_not_found(&mut stream, "File Not Found")
+                }
+                Err(ref e) if e.kind() == io::ErrorKind::PermissionDenied => {
+                    // Permission denied, send 403 response.
+                    return respond_forbidden(&mut stream, "Forbidden, Access Denied")
+                }
+                Err(_) => {
+                    //if the path points to nothing, return 404
+                    return respond_internal_server_error(&mut stream, "Something went wrong! Contact the server administrator.")
+                    //add logic here later for 403 Forbidden
+                }
+            }
+}
+
+pub fn handle_client(mut stream: TcpStream, routes: &[Route]) -> io::Result<()> {
+
+    let request_str = read_in_request(&mut stream).expect("Failed to read request");
 
     let mut header_lines: Vec<&str> = request_str.lines().collect();
 
@@ -58,7 +92,10 @@ pub fn handle_client(mut stream: TcpStream) -> io::Result<()>{
         request.add_header(header);
     }
 
-    println!("{}", request);
+    // Validate the request line
+    if let Err(err) = validate_request_line(request_line) {
+        return respond_bad_request(&mut stream, &err);
+    }
 
     // Validate the header
     for line in header_lines {
@@ -67,40 +104,13 @@ pub fn handle_client(mut stream: TcpStream) -> io::Result<()>{
         }    
     }
 
-    // Validate the request, then respond
-    match validate_request_line(&request_line) {
-        Err(err) => return respond_bad_request(&mut stream, &err),
-        Ok(path) => {
-            let path = path.chars().skip(1).collect::<String>();
-            if path.is_empty() {
-                return respond_ok(&mut stream);
-            }
-            let file_contents = read_to_string(&path);
-            match file_contents {
-                Ok(contents) => {
-                    return respond_ok_with_body_and_type(&mut stream, &contents, 
-                        from_file_extension(
-                            &get_file_extension(&path)
-                        )
-                    );
-                }
-                Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
-                    // File not found, send 404 response.
-                    return respond_not_found(&mut stream, "File Not Found")
-                }
-                Err(ref e) if e.kind() == io::ErrorKind::PermissionDenied => {
-                    // Permission denied, send 403 response.
-                    return respond_forbidden(&mut stream, "Forbidden, Access Denied")
-                }
-                Err(_) => {
-                    //if the path points to nothing, return 404
-                    return respond_internal_server_error(&mut stream, "Something went wrong! Contact the server administrator.")
-                    //add logic here later for 403 Forbidden
-                }
-            }
+    for route in routes {
+        if request_line.starts_with(&route.method) && request.path() == route.path {
+            return route.call(&mut stream);
         }
-    } 
-    
+    }
 
+    handle_file_case(&mut stream, &request.path())?;
 
+    respond_not_found(&mut stream, "Not Found")
 }
