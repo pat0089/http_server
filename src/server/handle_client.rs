@@ -8,6 +8,7 @@ use crate::server::responses::{ respond_bad_request, respond_not_found, respond_
 use crate::http_builder::{HttpRequest, HttpRequestLine, HttpMethod, HttpHeader};
 use crate::server::util::uri::get_file_extension;
 use crate::server::routes::Route;
+use crate::server::directories::{ Directory, directory_is_first_level };
 
 pub fn read_in_request(stream: &mut TcpStream) -> io::Result<String> {
 
@@ -58,7 +59,7 @@ fn handle_file_case(mut stream: &mut TcpStream, path: &str) -> io::Result<()> {
             }
 }
 
-pub fn handle_client(mut stream: TcpStream, routes: &[Route]) -> io::Result<()> {
+pub fn handle_client(mut stream: TcpStream, routes: &[Route], directories: &[Directory]) -> io::Result<()> {
 
     let request_str = read_in_request(&mut stream).expect("Failed to read request");
 
@@ -107,6 +108,16 @@ pub fn handle_client(mut stream: TcpStream, routes: &[Route]) -> io::Result<()> 
     for route in routes {
         if request_line.starts_with(&route.method) && request.path() == route.path {
             return route.call(&mut stream);
+        }
+    }
+
+    for directory in directories {
+        if request.path().starts_with(&directory.path()) {
+            if directory.allow_subdirectories || directory_is_first_level(&request.path(), &directory.path()){
+                return handle_file_case(&mut stream, &request.path());
+            } else if !directory_is_first_level(&request.path(), &directory.path()) {
+                return respond_forbidden(&mut stream, "Forbidden, Access Denied");
+            }
         }
     }
 

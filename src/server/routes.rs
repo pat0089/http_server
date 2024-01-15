@@ -3,6 +3,9 @@ use std::io;
 
 type Handler = fn(&mut TcpStream) -> io::Result<()>;
 
+/// A route that can be matched against a request
+/// 
+/// The path and method are used to match against the request
 pub struct Route {
     pub path: String,
     pub method: String,
