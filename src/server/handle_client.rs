@@ -106,7 +106,7 @@ pub fn handle_client(mut stream: TcpStream, routes: &[Route], directories: &[Dir
     }
 
     for route in routes {
-        if request_line.starts_with(&route.method) && request.path() == route.path {
+        if request_line.starts_with(&route.method()) && request.path() == route.path() {
             return route.call(&mut stream);
         }
     }

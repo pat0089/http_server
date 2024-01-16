@@ -4,6 +4,7 @@ use super::util::uri::sanitize;
 /// Structure to represent a directory.
 /// Contains the path of the directory, to be used for accessing files in that directory.
 pub struct Directory {
+    //TODO: check if path is valid otherwise return an error (non-empty)
     path: String,
     pub allow_subdirectories: bool
 }

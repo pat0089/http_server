@@ -245,10 +245,14 @@ impl fmt::Display for HttpRequest {
     }
 }
 
-pub fn write_http_response_header(status: HttpStatus, content_type: Option<MimeType>) -> String {
+pub fn write_http_response_header(status: HttpStatus, content_type: Option<MimeType>, content_length: Option<u64>) -> String {
     let mut response = HttpResponse::new(status);
 
     response.add_header(HttpHeader::ContentType(content_type.unwrap_or(MimeType::PlainText)));
+
+    if let Some(content_length) = content_length {
+        response.add_header(HttpHeader::ContentLength(content_length));
+    }
 
     response.to_string()
 }

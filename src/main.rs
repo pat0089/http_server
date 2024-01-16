@@ -8,7 +8,6 @@ use server::directories::Directory;
 use server::responses::respond_ok;
 
 fn main() {
-    //TODO: if a route is named a file, attempt to serve the file and return it instead and ignore route function/functionality
     let server = Server::new(vec![
         Route::new("/", "GET", respond_ok),
     ],

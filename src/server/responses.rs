@@ -7,7 +7,7 @@ use crate::server::util::mime_types::MimeType::{*, self};
 
 //400 Bad Request
 pub fn respond_bad_request(stream: &mut TcpStream, err: &str) -> io::Result<()> {
-    let header = write_http_response_header(BadRequest, Some(PlainText));
+    let header = write_http_response_header(BadRequest, Some(PlainText), None);
     let response = format!("{}Error: {}\r\n", &header, &err);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
@@ -16,7 +16,7 @@ pub fn respond_bad_request(stream: &mut TcpStream, err: &str) -> io::Result<()> 
 
 //403 Forbidden
 pub fn respond_forbidden(stream: &mut TcpStream, err: &str) -> io::Result<()> {
-    let header = write_http_response_header(Forbidden, Some(PlainText));
+    let header = write_http_response_header(Forbidden, Some(PlainText), None);
     let response = format!("{}Error: {}\r\n", &header, &err);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
@@ -25,7 +25,7 @@ pub fn respond_forbidden(stream: &mut TcpStream, err: &str) -> io::Result<()> {
 
 //404 Not Found
 pub fn respond_not_found(stream: &mut TcpStream, err: &str) -> io::Result<()> {
-    let header = write_http_response_header(NotFound, Some(PlainText));
+    let header = write_http_response_header(NotFound, Some(PlainText), None);
     let response = format!("{}Error: {}\r\n", header, err);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
@@ -34,7 +34,7 @@ pub fn respond_not_found(stream: &mut TcpStream, err: &str) -> io::Result<()> {
 
 //500 Internal Server Error
 pub fn respond_internal_server_error(stream: &mut TcpStream, err: &str) -> io::Result<()> {
-    let header = write_http_response_header(InternalServerError, Some(PlainText));
+    let header = write_http_response_header(InternalServerError, Some(PlainText), None);
     let response = format!("{}Error: {}\r\n", header, err);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
@@ -58,7 +58,7 @@ pub fn respond_ok(stream: &mut TcpStream) -> io::Result<()> {
 }
 
 pub fn respond_ok_with_body_and_type(stream: &mut TcpStream, body: &str, content_type: MimeType) -> io::Result<()> {
-    let header = write_http_response_header(RequestOk, Some(content_type));
+    let header = write_http_response_header(RequestOk, Some(content_type), Some(body.len() as u64));
     let response = format!("{}{}", header, body);
     stream.write_all(response.as_bytes())?;
     stream.flush()?;
