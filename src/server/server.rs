@@ -1,12 +1,14 @@
 use std::net::TcpListener;
+use std::sync::Arc;
+use std::thread;
 
 use crate::server::handle_client::handle_client;
 use crate::server::routes::Route;
 use crate::server::directories::Directory;
 
 pub struct Server {
-    routes: Vec<Route>,
-    directories: Vec<Directory>,
+    routes: Arc<Vec<Route>>,
+    directories: Arc<Vec<Directory>>,
 }
 
 impl Server {
@@ -31,16 +33,22 @@ impl Server {
             filtered_routes.push(route);
         }
     
-        Self { routes: filtered_routes, directories }
+        Self { routes: Arc::new(filtered_routes), directories: Arc::new(directories) }
 
     }
 
     pub fn run(&self) {
         let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
+        
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {
-                    handle_client(stream, &self.routes, &self.directories).expect("Failed to handle client");
+                    let rs = self.routes.clone();
+                    let ds = self.directories.clone();
+
+                    thread::spawn(move || {
+                        handle_client(stream, &rs, &ds).unwrap();
+                    });
                 }
                 Err(e) => {
                     eprintln!("Error: {}", e);

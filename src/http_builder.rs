@@ -104,6 +104,10 @@ impl fmt::Display for HttpMethod {
 pub enum HttpHeader {
     ContentType(MimeType),
     ContentLength(u64),
+    Host(String),
+    Accept(Vec<MimeType>),
+    AcceptLanguage(String),
+    Connection(bool),
     Custom(String, String), // For headers not explicitly listed here.
 }
 
@@ -112,6 +116,15 @@ impl fmt::Display for HttpHeader {
         match self {
             HttpHeader::ContentType(content_type) => write!(f, "Content-Type: {}\r\n", content_type),
             HttpHeader::ContentLength(content_length) => write!(f, "Content-Length: {}\r\n", content_length),
+            HttpHeader::Host(host) => write!(f, "Host: {}\r\n", host),
+            HttpHeader::Accept(accept) => write!(f, "Accept: {}\r\n", 
+                accept.iter()
+                    .map(|mime| mime.to_string())
+                    .collect::<Vec<String>>()
+                    .join(",")
+            ),
+            HttpHeader::AcceptLanguage(accept_language) => write!(f, "Accept-Language: {}\r\n", accept_language),
+            HttpHeader::Connection(connection) => write!(f, "Connection: {}\r\n", if *connection { "keep-alive" } else { "close" }),
             HttpHeader::Custom(name, value) => write!(f, "{}: {}\r\n", name, value),
         }
     }
@@ -136,6 +149,10 @@ impl FromStr for HttpHeader {
             "Content-Length" => value.parse::<u64>()
                 .map(HttpHeader::ContentLength)
                 .map_err(|_| "Invalid Content-Length value".to_string()),
+            "Host" => Ok(HttpHeader::Host(value.to_string())),
+            "Accept" => Ok(HttpHeader::Accept(value.split(',').map(|s| MimeType::from_str(s.trim()).unwrap_or(MimeType::PlainText)).collect())),
+            "Accept-Language" => Ok(HttpHeader::AcceptLanguage(value.to_string())),
+            "Connection" => Ok(HttpHeader::Connection(value.to_lowercase() == "keep-alive")),
             _ => Ok(HttpHeader::Custom(name.to_string(), value.to_string())),
         }
     }
@@ -159,7 +176,7 @@ impl HttpRequestLine {
 
 impl fmt::Display for HttpRequestLine {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "HTTP/1.1 {} {}\r\n", self.method, self.uri)
+        write!(f, "{} {} HTTP/1.1\r\n", self.method, self.uri)
     }
 }
 
@@ -232,6 +249,15 @@ impl HttpRequest {
 
     pub fn path(&self) -> String {
         return self.request_line.uri.clone();
+    }
+
+    pub fn get_host(&self) -> String {
+        for header in &self.headers {
+            if let HttpHeader::Host(host) = header {
+                return host.clone();
+            }
+        }
+        "localhost".to_string()
     }
 }
 
