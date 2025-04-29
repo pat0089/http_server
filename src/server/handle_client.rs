@@ -80,7 +80,6 @@ pub fn handle_client(mut stream: TcpStream, routes: &[Route], directories: &[Dir
         }
     }
 
-
     let mut request_method_and_path : Vec<&str> = request_line.splitn(3, ' ').collect();
     request_method_and_path.pop();
     let mut request = HttpRequest::new(
@@ -106,7 +105,9 @@ pub fn handle_client(mut stream: TcpStream, routes: &[Route], directories: &[Dir
         }
     }
 
+    // TODO: fix sending external requests
     //google.com External Request
+    /*
     let mut request = HttpRequest::new(
         HttpRequestLine::new(HttpMethod::GET, "/"),
     );
@@ -118,12 +119,12 @@ pub fn handle_client(mut stream: TcpStream, routes: &[Route], directories: &[Dir
     //    request.clone()
     //);
     
-    // TODO: fix sending external requests
     //println!("sending basic GET request to {}", request.path());
     //let external_response = external_request.send();
     //if let Ok(external_response) = external_response {
     //    return respond_ok_with_body_and_type(&mut stream, &external_response.raw_response, crate::server::util::mime_types::MimeType::Html);
     //}
+    */
 
     for route in routes {
         if request_line.starts_with(&route.method()) && request.path() == route.path() {
