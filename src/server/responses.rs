@@ -1,7 +1,7 @@
 use std::net::TcpStream;
 use std::io::{self, Write};
 use crate::http_builder::write_http_response_header;
-use crate::html_builder::{ write_html, write_head, write_body, write_title, write_script, write_header, write_attribute, write_style };
+use crate::html_builder::Page;
 use crate::http_builder::HttpStatus::{RequestOk, BadRequest, Forbidden, NotFound, InternalServerError};
 use crate::server::util::mime_types::MimeType::{*, self};
 
@@ -43,18 +43,18 @@ pub fn respond_internal_server_error(stream: &mut TcpStream, err: &str) -> io::R
 
 //200 OK
 pub fn respond_ok(stream: &mut TcpStream) -> io::Result<()> {
-    let title = write_title(Some("Hello, world!"));
-    let script = write_script(None, Some(&write_attribute("src", "hello_world.js")));
-    let style = write_style(Some("* { font-family: monospace; }"));
 
-    let header = write_header(1, Some("Hello, world!"));
-    
-    let body = write_body(Some(&header));
-    let head = write_head(Some(&format!("{title}\n{script}\n{style}")));
+    let mut response  = Page::new();
+    let hello = "Hello, World!";
+    response.add_title(hello);
+    response.add_script(Javascript, Some("hello_world.js"), None);
+    response.add_style(None, Some("* { font-family: monospace; }"));
 
-    let response_body = write_html(Some(&format!("{head}\n{body}")));
+    response.add_heading(1, hello);
+    response.add_break();
+    response.add_paragraph(hello);
 
-    respond_ok_with_body_and_type(stream, &response_body, Html)
+    respond_ok_with_body_and_type(stream, response.to_string().as_str(), Html)
 }
 
 pub fn respond_ok_with_body_and_type(stream: &mut TcpStream, body: &str, content_type: MimeType) -> io::Result<()> {

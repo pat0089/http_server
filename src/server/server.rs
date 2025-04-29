@@ -38,7 +38,9 @@ impl Server {
     }
 
     pub fn run(&self) {
-        let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
+        let address = "127.0.0.1:8080";
+        let listener = TcpListener::bind(address).unwrap();
+        println!("Listening on http://{}", address);
         
         for stream in listener.incoming() {
             match stream {

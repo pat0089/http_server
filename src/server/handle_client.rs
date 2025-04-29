@@ -9,7 +9,7 @@ use crate::http_builder::{HttpRequest, HttpRequestLine, HttpMethod, HttpHeader};
 use crate::server::util::uri::get_file_extension;
 use crate::server::routes::Route;
 use crate::server::directories::{ Directory, directory_is_first_level };
-use crate::server::util::externals::ExternalRequest;
+//use crate::server::util::externals::ExternalRequest;
 
 pub fn read_in_request(stream: &mut TcpStream) -> io::Result<String> {
 
@@ -114,15 +114,16 @@ pub fn handle_client(mut stream: TcpStream, routes: &[Route], directories: &[Dir
     request.add_header(HttpHeader::Accept(vec![crate::server::util::mime_types::MimeType::Html]));
     request.add_header(HttpHeader::AcceptLanguage("en-US".to_string()));
     request.add_header(HttpHeader::Connection(true));
-    let external_request = ExternalRequest::new(
-        request.clone()
-    );
+    //let external_request = ExternalRequest::new(
+    //    request.clone()
+    //);
     
-    println!("sending basic GET request to {}", request.path());
-    let external_response = external_request.send();
-    if let Ok(external_response) = external_response {
-        return respond_ok_with_body_and_type(&mut stream, &external_response.raw_response, crate::server::util::mime_types::MimeType::Html);
-    }
+    // TODO: fix sending external requests
+    //println!("sending basic GET request to {}", request.path());
+    //let external_response = external_request.send();
+    //if let Ok(external_response) = external_response {
+    //    return respond_ok_with_body_and_type(&mut stream, &external_response.raw_response, crate::server::util::mime_types::MimeType::Html);
+    //}
 
     for route in routes {
         if request_line.starts_with(&route.method()) && request.path() == route.path() {
