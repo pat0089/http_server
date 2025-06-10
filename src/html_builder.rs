@@ -27,6 +27,11 @@ impl Page {
         body.add_child(element);
     }
 
+    fn add_head_element(&mut self, element: HtmlElement) {
+        let head = &mut self.html_head.children[0];
+        head.add_child(element);
+    }
+
     pub fn add_heading(&mut self, level: usize, content: &str) {
         match level {
             1 => self.add_body_element(HtmlElement::new("h1", Some(content))),
@@ -51,24 +56,48 @@ impl Page {
     }
     
     pub fn add_script(&mut self, script_type: MimeType, path: Option<&str>, content: Option<&str>) {
-        let head = &mut self.html_head.children[0];
-
         let mut element = HtmlElement::new("script", content);
         element.add_attribute("type", &script_type.to_string());
         if let Some(path) = path {
             element.add_attribute("src", path);
         }
-        head.add_child(element);
+        self.add_head_element(element);
     }
 
     pub fn add_style(&mut self, path: Option<&str>, content: Option<&str>) {
-        let head = &mut self.html_head.children[0];
-
         let mut element = HtmlElement::new("style", content);
         if let Some(path) = path {
             element.add_attribute("src", path);
         }
-        head.add_child(element);
+        self.add_head_element(element);
+    }
+
+    pub fn add_canvas(&mut self, width: u32, height: u32, class: Option<&str>, setup_webgl: bool) {
+        let mut element = HtmlElement::new("canvas", None);
+        
+        element.add_attribute("width", &width.to_string());
+        
+        element.add_attribute("height", &height.to_string());
+
+        if let Some(class) = class {
+            element.add_attribute("class", class);
+        }
+        
+        if setup_webgl {
+            self.add_script(MimeType::JavaScript, Some("gl-matrix-min.js"), None);
+            self.add_script(MimeType::JavaScript, Some("webgl_test.js"), None);
+
+            element.add_attribute("class", "webgl_canvas");
+        }
+
+        self.add_body_element(element);
+
+    }
+
+    pub fn add_hyperlink(&mut self, content: &str, addr: &str) {
+        let mut element = HtmlElement::new("a", Some(content));
+        element.add_attribute("href", addr);
+        self.add_body_element(element);
     }
 }
 
@@ -105,6 +134,14 @@ impl HtmlElement {
     }
 
     fn add_attribute(&mut self, name: &str, value: &str) {
+        if name.is_empty() || value.is_empty() {
+            return;
+        }
+
+        if let Some(attr) = self.attributes.iter_mut().find(|attr| attr.name == name) {
+            attr.value = value.to_string();
+            return;
+        }
         self.attributes.push(HtmlAttribute::new(name.to_string(), value.to_string()));
     }
 

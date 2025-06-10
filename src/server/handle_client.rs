@@ -1,14 +1,17 @@
+use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::net::TcpStream;
 use std::io::{self, Read};
 use std::str::FromStr;
 use crate::server::util::mime_types::from_file_extension;
 use crate::server::util::request_validation::{ validate_header, validate_request_line };
-use crate::server::responses::{ respond_bad_request, respond_not_found, respond_forbidden, respond_internal_server_error, respond_ok_with_body_and_type };
+use crate::server::responses::{ error::{ respond_bad_request, respond_not_found, respond_forbidden, respond_internal_server_error}, ok::respond_ok_with_body_and_type };
 use crate::http_builder::{HttpRequest, HttpRequestLine, HttpMethod, HttpHeader};
 use crate::server::util::uri::get_file_extension;
 use crate::server::routes::Route;
 use crate::server::directories::{ Directory, directory_is_first_level };
+
+use super::responses::experimental::respond_redirect;
 //use crate::server::util::externals::ExternalRequest;
 
 pub fn read_in_request(stream: &mut TcpStream) -> io::Result<String> {
@@ -106,29 +109,28 @@ pub fn handle_client(mut stream: TcpStream, routes: &[Route], directories: &[Dir
     }
 
     // TODO: fix sending external requests
-    //google.com External Request
-    /*
-    let mut request = HttpRequest::new(
-        HttpRequestLine::new(HttpMethod::GET, "/"),
-    );
-    request.add_header(HttpHeader::Host("google.com".to_string()));
-    request.add_header(HttpHeader::Accept(vec![crate::server::util::mime_types::MimeType::Html]));
-    request.add_header(HttpHeader::AcceptLanguage("en-US".to_string()));
-    request.add_header(HttpHeader::Connection(true));
-    //let external_request = ExternalRequest::new(
-    //    request.clone()
-    //);
-    
-    //println!("sending basic GET request to {}", request.path());
-    //let external_response = external_request.send();
-    //if let Ok(external_response) = external_response {
-    //    return respond_ok_with_body_and_type(&mut stream, &external_response.raw_response, crate::server::util::mime_types::MimeType::Html);
-    //}
-    */
 
+
+    // TODO: make a rich type mapping for finding routes, 
+    // e.g. RouteMatch enum with 
+        // Match(HashMap<String, String>)
+        // Redirect(String)
+        // NoMatch
     for route in routes {
-        if request_line.starts_with(&route.method()) && request.path() == route.path() {
-            return route.call(&mut stream);
+        if request.method() == route.method() {
+            match match_request_to_route(&request.path(), &route.path()) {
+                RouteMatch::Match(params) => {
+                    return route.call(&mut stream, params);
+                }
+                RouteMatch::Redirect(correct_path) => {
+                    return respond_redirect(&mut stream, &correct_path);
+                }
+                RouteMatch::Malformed(error) => {
+                    //get the correct path
+                    return respond_bad_request(&mut stream, &error);
+                }
+                RouteMatch::NoMatch => {}
+            }
         }
     }
 
@@ -142,7 +144,107 @@ pub fn handle_client(mut stream: TcpStream, routes: &[Route], directories: &[Dir
         }
     }
 
-    handle_file_case(&mut stream, &request.path())?;
-
     respond_not_found(&mut stream, "Not Found")
+    
+}
+
+/// Figure out the malformation of a request to give a more specific error
+/// first, match the path of the request to the path of the route to find the differences
+fn malformatted_request_path(request_parts: &Vec<&str>, route_parts: &Vec<&str>) -> RouteMatch {
+    for i in 0..route_parts.len() {
+        
+        if route_parts[i].starts_with(':') {
+            //parameter
+            if request_parts.get(i).is_none() {
+                return RouteMatch::Malformed("Missing parameter".to_string());
+            }
+        }
+        if request_parts.get(i).is_none() {
+            //deviated from specified path
+            return RouteMatch::Malformed("Malformed path".to_string());
+        }
+    }
+    RouteMatch::Malformed("Unknown Malformation".to_string())
+}
+
+#[derive(Debug, PartialEq)]
+enum RouteMatch {
+    Match(HashMap<String, String>),
+    Redirect(String),
+    Malformed(String),
+    NoMatch
+}
+
+/// Match the path of the request to the path of the route
+/// unofficial validator for the path, can handle parameters starting with ':'
+/// returns None if the paths do not match or are otherwise malformed
+fn match_request_to_route(request_path: &str, route_path: &str) -> RouteMatch {
+    let request_parts = request_path.trim_matches('/').split('/').collect::<Vec<&str>>();
+    let route_parts = route_path.trim_matches('/').split('/').collect::<Vec<&str>>();
+
+    if request_parts.len() > route_parts.len() {
+        return RouteMatch::NoMatch;
+    }
+
+    let mut params = HashMap::new();
+    for (request_part, path_part) in request_parts.iter().zip(route_parts.iter()) {
+        if path_part.starts_with(':') {
+            params.insert(path_part.trim_matches(':').to_string(), request_part.to_string());
+        } else if request_part != path_part {
+            return RouteMatch::NoMatch;
+        }
+    }
+
+    if request_parts.len() < route_parts.len() {
+        //TODO: check if this difference in length is because of missing parameters or malformed via incomplete path
+        return malformatted_request_path(&request_parts, &route_parts);
+    }
+
+    RouteMatch::Match(params)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_basic_match_request_to_route() {
+        assert_eq!(match_request_to_route("/home", "/home"), RouteMatch::Match(HashMap::new()));
+        assert_eq!(match_request_to_route("/home", "/home/"), RouteMatch::Match(HashMap::new()));
+        assert_eq!(match_request_to_route("/home", "/home/abc"), RouteMatch::Malformed("Malformed path".to_string()));
+        assert_eq!(match_request_to_route("/home/abc", "/home/abc"), RouteMatch::Match(HashMap::new()));
+        assert_eq!(match_request_to_route("/home/abc", "/home/abc/"), RouteMatch::Match(HashMap::new()));
+        assert_eq!(match_request_to_route("/home/abc", "/home/abc/def"), RouteMatch::Malformed("Malformed path".to_string()));
+
+        //NoMatch for this one instead of Malformed because the request path is longer than the route path
+        assert_eq!(match_request_to_route("/home/abc", "/home/"), RouteMatch::NoMatch);
+    }
+
+    #[test]
+    fn test_parameters_match_request_to_route() {
+        assert_eq!(match_request_to_route("/home/abc", "/home/:id"), RouteMatch::Match(HashMap::from([("id".to_string(), "abc".to_string())])));
+        assert_eq!(match_request_to_route("/home/abc", "/home/:id/"), RouteMatch::Match(HashMap::from([("id".to_string(), "abc".to_string())])));
+
+        assert_eq!(match_request_to_route("/home/", "/home/:id"), RouteMatch::Malformed("Missing parameter".to_string()));
+        assert_eq!(match_request_to_route("/home/abc", "/home/:id/def"), RouteMatch::Malformed("Malformed path".to_string()));
+        assert_eq!(match_request_to_route("/home/abc/def", "/home/:id/def/ghi"), RouteMatch::Malformed("Malformed path".to_string()));
+        assert_eq!(match_request_to_route("/home/abc/def/ghi", "/home/:id/def/:name"), RouteMatch::Match(HashMap::from([("id".to_string(), "abc".to_string()), ("name".to_string(), "ghi".to_string())])));
+
+        //NoMatch for this one instead of Malformed because the request path is longer than the route path
+        assert_eq!(match_request_to_route("/home/abc/def/ghi", "/home/:id/def/"), RouteMatch::NoMatch);
+        assert_eq!(match_request_to_route("/home/abc/def", "/home/:id/def/:name/"), RouteMatch::Malformed("Missing parameter".to_string()));
+    }
+
+    #[test]
+    fn test_edge_cases_match_request_to_route() {
+        //difference between these are that the malformation of the request path is in the middle versus at the end
+        assert_eq!(match_request_to_route("/a//", "/a/b/"), RouteMatch::Malformed("Malformed path".to_string()));
+        assert_eq!(match_request_to_route("/a//c", "/a/b/c"), RouteMatch::NoMatch);
+
+        //the difference here is that the missing parameter is at the end instead of in the middle, 
+        // where it would technically be optional and/or be an empty value...
+        // and if it shouldn't be, ...TODO
+        assert_eq!(match_request_to_route("/your//", "/your/:id"), RouteMatch::Malformed("Missing parameter".to_string()));
+        assert_eq!(match_request_to_route("/your//and/name", "/your/:id/and/:name"), RouteMatch::Match(HashMap::from([("id".to_string(), "".to_string()), ("name".to_string(), "name".to_string())])));
+    }
 }

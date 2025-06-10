@@ -259,6 +259,10 @@ impl HttpRequest {
         }
         "localhost".to_string()
     }
+    
+    pub fn method(&self) -> HttpMethod {
+        self.request_line.method.clone()
+    }
 }
 
 impl fmt::Display for HttpRequest {
