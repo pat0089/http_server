@@ -137,10 +137,8 @@ impl InfoHeader {
         self.0.set_u32(32, 0);
     }
 
-    fn write_pixel_data_size(&mut self, width: u32, height: u32, bits_per_pixel: u32) {
-        let bytes = bits_per_pixel / 8;
-        let padding = (width * bytes) % 4;
-        self.0.set_u32(20, (3 * (width + padding) * height) as u32);
+    fn write_pixel_data_size(&mut self, width: u32, height: u32) {
+        self.0.set_u32(20, (3 * (width + get_padding(width)) * height) as u32);
     }
 
     pub fn update_info_header(&mut self, width: u32, height: u32, bits_per_pixel: u32) {
@@ -152,7 +150,7 @@ impl InfoHeader {
         self.write_resolution();
         self.write_num_colors();
         self.write_colors_used();
-        self.write_pixel_data_size(width, height, bits_per_pixel);
+        self.write_pixel_data_size(width, height);
     }
 }
 
@@ -163,10 +161,10 @@ impl FromIterator<u8> for InfoHeader {
 }
 
 pub struct Bitmap {
-    pub file_header: FileHeader,
-    pub info_header: InfoHeader,
+    file_header: FileHeader,
+    info_header: InfoHeader,
     pub image_buffer: ImageBuffer,
-    pub dimensions: (u32, u32),
+    dimensions: (u32, u32),
 }
 
 impl Bitmap {
@@ -174,8 +172,7 @@ impl Bitmap {
         let mut file_header = FileHeader::new();
         let mut info_header = InfoHeader::new();
         let (width, height) = dimensions;
-        let padding = width * 3 % 4;
-        file_header.update_file_header(3 * (width + padding) * height);
+        file_header.update_file_header(3 * (width + get_padding(width)) * height);
         info_header.update_info_header(width, height, bits_per_pixel);
 
         Bitmap {
@@ -189,4 +186,8 @@ impl Bitmap {
     pub fn write_bitmap(&self) -> Vec<u8> {
         vec![self.file_header.0.to_bytes(), self.info_header.0.to_bytes(), self.image_buffer.to_bytes()].concat()
     }
+}
+
+fn get_padding(width: u32) -> u32 {
+    (width * 3) % 4
 }
